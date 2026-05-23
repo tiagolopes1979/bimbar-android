@@ -1,0 +1,26 @@
+{
+  "name": "bimbar-android",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bimbar - Gestão de eventos (Android)",
+  "scripts": {
+    "build": "node build.cjs",
+    "sync": "npm run build && npx cap sync",
+    "build:android": "npm run build && npx cap build android",
+    "open:android": "npx cap open android",
+    "copy": "npm run build && npx cap copy",
+    "test": "NODE_ENV=test node --experimental-vm-modules node_modules/.bin/jest --forceExit"
+  },
+  "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
+    "better-sqlite3": "^12.10.0",
+    "esbuild": "^0.28.0",
+    "jest": "^30.4.2"
+  }
+}

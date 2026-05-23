@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Bimbar - Gestão Premium</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
+</head>
+<body>
+
+<!-- ===== ATIVAÇÃO ===== -->
+<div id="app-ativacao" style="display:none;min-height:100vh;place-items:center;background:#0a0a12;padding:20px">
+  <div class="login-box" style="text-align:center">
+    <h1>🔐 Bimbar</h1>
+    <p style="margin-bottom:8px">Sistema de Gestão Premium</p>
+    <p style="font-size:12px;color:#666;margin-bottom:20px">Ative sua licença para começar</p>
+    <form id="form-ativacao" onsubmit="handleAtivacao(event)">
+      <label>Chave de Ativação</label>
+      <input type="text" id="ativacao-chave" placeholder="BIMBAR-XXXX-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:1px;text-align:center" required>
+      <button type="submit">Ativar</button>
+      <div class="erro" id="erro-ativacao"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="app-login" style="display:none;min-height:100vh;place-items:center;background:#0a0a12;padding:20px">
+  <div class="login-box">
+    <h1>Bimbar</h1>
+    <p>Gestão Premium</p>
+    <form id="form-login" onsubmit="handleLogin(event)">
+      <label>Usuário</label>
+      <input type="text" id="login-usuario" autocomplete="username" required>
+      <label>Senha</label>
+      <input type="password" id="login-senha" autocomplete="current-password" required>
+      <button type="submit">Entrar</button>
+      <div class="erro" id="erro-login"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="app-main" style="display:none">
+
+  <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <button class="fechar-sidebar" onclick="toggleSidebar()">✕</button>
+      <h1>Bimbar</h1>
+      <p>Gestão Premium</p>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-btn ativo" data-painel="operacao" onclick="abrirPainel('operacao')">
+        <span class="icone">⚡</span><span>Operação</span>
+      </button>
+      <button class="nav-btn" data-painel="caixa" onclick="abrirPainel('caixa')">
+        <span class="icone">💰</span><span>Caixa</span>
+      </button>
+      <button class="nav-btn" data-painel="saidas" onclick="abrirPainel('saidas')">
+        <span class="icone">📤</span><span>Saídas</span>
+      </button>
+      <button class="nav-btn" data-painel="dancarinas" onclick="abrirPainel('dancarinas')">
+        <span class="icone">💃</span><span>Dançarinas / Shows</span>
+      </button>
+      <button class="nav-btn" data-painel="funcionarios" onclick="abrirPainel('funcionarios')">
+        <span class="icone">👥</span><span>Funcionários</span>
+      </button>
+      <button class="nav-btn" data-painel="vales" onclick="abrirPainel('vales')">
+        <span class="icone">💳</span><span>Vales</span>
+      </button>
+      <button class="nav-btn" data-painel="relatorios" onclick="abrirPainel('relatorios')">
+        <span class="icone">📊</span><span>Relatórios</span>
+      </button>
+    </nav>
+
+    <div class="status-bar">
+      <span class="status-dot"></span>
+      <span>Online</span>
+    </div>
+    <div style="font-size:10px;color:#555;padding:4px 14px;text-align:center;border-top:1px solid var(--border);margin-top:4px;padding-top:8px">
+      <span id="license-info">Licença ativa</span>
+    </div>
+    <button class="btn btn-ghost logout-btn" style="margin-top:4px" onclick="sair()">Sair</button>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h2 id="titulo-pagina">⚡ Operação</h2>
+      <span class="data-atual" id="data-atual"></span>
+    </div>
+
+    <!-- OPERAÇÃO -->
+    <div class="painel ativo" id="p-operacao">
+      <div class="card">
+        <div class="card-header">
+          <h3>Operação de Hoje</h3>
+          <span class="badge badge-primary" id="op-status">Carregando</span>
+        </div>
+        <div class="grid-2 mb-16">
+          <div class="campo">
+            <label>Data da Operação</label>
+            <input type="date" id="op-data">
+          </div>
+          <div class="acoes align-end">
+            <button class="btn btn-primary" onclick="carregarOperacao()">Atualizar</button>
+          </div>
+        </div>
+        <div id="op-alerta"></div>
+        <div class="metricas">
+          <div class="metrica"><span>Entradas</span><strong id="op-entradas">R$ 0,00</strong></div>
+          <div class="metrica"><span>Saídas</span><strong id="op-saidas">R$ 0,00</strong></div>
+          <div class="metrica"><span>Saldo Previsto</span><strong id="op-saldo">R$ 0,00</strong></div>
+          <div class="metrica"><span>Shows</span><strong id="op-shows">0</strong></div>
+        </div>
+        <div class="metricas">
+          <div class="metrica"><span>Valor Shows</span><strong id="op-valor-shows">R$ 0,00</strong></div>
+          <div class="metrica"><span>Comissão Dançarinas</span><strong id="op-comissao">R$ 0,00</strong></div>
+          <div class="metrica"><span>Vales Pendentes</span><strong id="op-vales">R$ 0,00</strong></div>
+          <div class="metrica"><span>Próxima Linha</span><strong id="op-linha">1</strong></div>
+          <div class="metrica"><span>Diferença Caixa</span><strong id="op-diferenca">-</strong></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Lançamento Rápido de Saída</h3></div>
+          <div class="grid-2">
+            <div class="campo">
+              <label>Categoria</label>
+              <select id="op-s-cat">
+                <option value="UBER">Uber</option><option value="PAGODE">Pagode</option>
+                <option value="GELO">Gelo</option><option value="CIGARRO">Cigarro</option>
+                <option value="MERCADO">Mercado</option><option value="PAGAMENTOS">Pagamentos</option>
+                <option value="VALES_ESPECIES">Vales Espécies</option><option value="VALES_BAR">Vales Bar</option>
+                <option value="FIADO">Fiado</option><option value="LAVANDERIAS">Lavanderias</option>
+                <option value="SEGURANCA">Segurança</option><option value="SHOW">Show</option>
+                <option value="OUTROS">Outros</option>
+              </select>
+            </div>
+            <div class="campo"><label>Valor (R$)</label><input type="number" id="op-s-val" step="0.01"></div>
+            <div class="campo grid-full"><label>Descrição</label><input type="text" id="op-s-desc" placeholder="Ex: mercado, gelo, transporte"></div>
+          </div>
+          <div class="acoes mt-14">
+            <button class="btn btn-primary" onclick="lancarSaidaRapida()">Lançar Saída</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Lançamento Rápido de Show</h3></div>
+          <div class="grid-2">
+            <div class="campo"><label>Dançarina</label><select id="op-sh-danc"></select></div>
+            <div class="campo"><label>Linha</label><input type="number" id="op-sh-linha" min="1" max="23"></div>
+            <div class="campo"><label>Preset</label><select id="op-sh-preset"><option value="30">30 min</option><option value="60">60 min</option><option value="custom">Personalizado</option></select></div>
+            <div class="campo"><label>Valor (R$)</label><input type="number" id="op-sh-valor" step="0.01" value="160"></div>
+            <div class="campo"><label>Tipo</label><select id="op-sh-tipo"><option value="FX">FX</option><option value="FL">FL</option></select></div>
+            <div class="campo"><label>Quartos</label><input type="number" id="op-sh-quartos" min="1" value="1"></div>
+            <div class="campo"><label>Entrada</label><input type="time" id="op-sh-hrin"></div>
+            <div class="campo"><label>Saída</label><input type="time" id="op-sh-hrout"></div>
+          </div>
+          <div class="acoes mt-14">
+            <button class="btn btn-success" onclick="lancarShowRapido()">Lançar Show</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Resumo Geral das Comissões</h3>
+          <span class="badge badge-info">Admin / Gestor</span>
+        </div>
+        <div class="comissao-geral" id="op-comissoes-geral"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Últimos Lançamentos</h3></div>
+          <div class="resultado" id="op-ultimos"><span class="vazio">Carregando operação...</span></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Comissões por Dançarina</h3>
+            <span class="badge badge-success" id="op-comissoes-qtd">0 dançarinas</span>
+          </div>
+          <div class="resultado" id="op-comissoes"><span class="vazio">Nenhuma dança no dia.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAIXA -->
+    <div class="painel" id="p-caixa">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Abrir Caixa do Dia</h3><span class="badge badge-primary">Novo</span></div>
+          <div class="grid-2">
+            <div class="campo"><label>Data</label><input type="date" id="cx-data"></div>
+            <div class="campo"><label>Troco Inicial (R$)</label><input type="number" id="cx-troco" value="300" step="0.01"></div>
+            <div class="campo"><label>Comanda Inicial (nº)</label><input type="number" id="cx-comanda-inicio" placeholder="Ex: 1"></div>
+          </div>
+          <div class="acoes mt-14">
+            <button class="btn btn-primary" onclick="abrirCaixa()">Abrir Caixa</button>
+            <button class="btn btn-ghost" onclick="listarCaixas()">Listar Dias</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Fechar Caixa</h3><span class="badge badge-warning">Fechamento</span></div>
+          <div class="grid-2">
+            <div class="campo"><label>Data</label><input type="date" id="cx-fecha-data"></div>
+            <div class="campo"><label>Comandas (R$)</label><input type="number" id="cx-com" step="0.01" placeholder="0,00"></div>
+            <div class="campo"><label>Comanda Final (nº)</label><input type="number" id="cx-comanda-fim" placeholder="Ex: 100"></div>
+            <div class="campo"><label>Cartões (R$)</label><input type="number" id="cx-car" step="0.01" placeholder="0,00"></div>
+            <div class="campo"><label>Dinheiro (R$)</label><input type="number" id="cx-esp" step="0.01" placeholder="0,00"></div>
+            <div class="campo"><label>Dinheiro Contado (R$)</label><input type="number" id="cx-dinheiro" step="0.01" placeholder="0,00"></div>
+            <div class="campo"><label>Responsável</label><input type="text" id="cx-responsavel" placeholder="Nome do gerente"></div>
+            <div class="campo grid-full"><label>Observação</label><input type="text" id="cx-obs" placeholder="Ex: sobra/falta explicada, máquina pendente"></div>
+          </div>
+          <div class="acoes mt-14">
+            <button class="btn btn-gold" onclick="fecharCaixa()">Fechar Caixa</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>Resultado</h3>
+          <div class="acoes-top">
+            <button class="btn btn-sm btn-primary" onclick="gerarPDF()">📄 Gerar PDF</button>
+          </div>
+        </div>
+        <div class="resultado" id="r-caixa"><span class="vazio">Clique em "Abrir Caixa" ou "Listar Dias" para começar.</span></div>
+      </div>
+    </div>
+
+    <!-- SAÍDAS -->
+    <div class="painel" id="p-saidas">
+      <div class="card">
+        <div class="card-header"><h3>Lançar Saída</h3><span class="badge badge-warning">Nova Saída</span></div>
+        <div class="grid-2-inline">
+          <div class="campo"><label>Data</label><input type="date" id="s-data"></div>
+          <div class="campo">
+            <label>Categoria</label>
+            <select id="s-cat">
+              <option value="UBER">Uber</option><option value="PAGODE">Pagode</option>
+              <option value="GELO">Gelo</option><option value="CIGARRO">Cigarro</option>
+              <option value="MERCADO">Mercado</option><option value="PAGAMENTOS">Pagamentos</option>
+              <option value="VALES_ESPECIES">Vales Espécies</option><option value="VALES_BAR">Vales Bar</option>
+              <option value="FIADO">Fiado</option><option value="LAVANDERIAS">Lavanderias</option>
+              <option value="SEGURANCA">Segurança</option><option value="SHOW">Show</option>
+              <option value="OUTROS">Outros</option>
+            </select>
+          </div>
+          <div class="campo"><label>Valor (R$)</label><input type="number" id="s-val" step="0.01" value="25"></div>
+          <div class="campo"><label>Descrição</label><input type="text" id="s-desc" placeholder="Ex: Uber ida e volta"></div>
+        </div>
+        <div class="acoes mt-14">
+          <button class="btn btn-primary" onclick="lancarSaida()">Lançar Saída</button>
+          <button class="btn btn-ghost" onclick="verSaidas()">Ver Saídas do Dia</button>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><h3>Saídas Lançadas</h3></div><div class="resultado" id="r-saidas"><span class="vazio">Nenhum lançamento ainda.</span></div></div>
+    </div>
+
+    <!-- DANÇARINAS / SHOWS -->
+    <div class="painel" id="p-dancarinas">
+      <div class="tabs">
+        <button class="tab-btn ativo" onclick="abrirAbaDancarinas('cadastro')" data-tab="cadastro">Dançarinas</button>
+        <button class="tab-btn" onclick="abrirAbaDancarinas('lancar')" data-tab="lancar">Lançar Show</button>
+        <button class="tab-btn" onclick="abrirAbaDancarinas('shows-dia')" data-tab="shows-dia">Shows do Dia</button>
+      </div>
+
+      <div class="card subpainel sub-dancarinas-cadastro ativo">
+        <div class="card-header"><h3>Cadastrar Dançarina</h3><span class="badge badge-success">Novo Cadastro</span></div>
+        <div class="grid-3-inline mb-14">
+          <div class="campo"><label>Nome Completo</label><input type="text" id="d-nome" placeholder="Ex: Maria Silva"></div>
+          <div class="campo"><label>Telefone</label><input type="text" id="d-tel" placeholder="(11) 99999-0000"></div>
+          <div class="campo"><label>Comissão Manual (R$)</label><input type="number" id="d-comissao" value="0" step="0.01"></div>
+          <div class="campo"><label>Comissão Percentual (%)</label><input type="number" id="d-comissao-pct" value="30" step="0.01" min="0" max="100"></div>
+          <div class="campo"><label>Comissão Dança (%)</label><input type="number" id="d-comissao-danca-pct" value="62.50" step="0.01" min="0" max="100"></div>
+        </div>
+        <div class="card mb-14">
+          <div class="card-header"><h3>Tipos de Dança</h3></div>
+          <div class="grid-2-inline">
+            <div class="dance-type-row">
+              <div class="campo"><label>Nome</label><input type="text" id="d-d1-nome" value="30 min"></div>
+              <div class="campo"><label>Qtd</label><input type="number" id="d-d1-qty" value="0" min="0"></div>
+              <div class="campo"><label>Valor</label><input type="number" id="d-d1-val" value="160" step="0.01"></div>
+            </div>
+            <div class="dance-type-row">
+              <div class="campo"><label>Nome</label><input type="text" id="d-d2-nome" value="60 min"></div>
+              <div class="campo"><label>Qtd</label><input type="number" id="d-d2-qty" value="0" min="0"></div>
+              <div class="campo"><label>Valor</label><input type="number" id="d-d2-val" value="320" step="0.01"></div>
+            </div>
+            <div class="dance-type-row">
+              <div class="campo"><label>Nome</label><input type="text" id="d-d3-nome"></div>
+              <div class="campo"><label>Qtd</label><input type="number" id="d-d3-qty" value="0" min="0"></div>
+              <div class="campo"><label>Valor</label><input type="number" id="d-d3-val" value="0" step="0.01"></div>
+            </div>
+            <div class="dance-type-row">
+              <div class="campo"><label>Nome</label><input type="text" id="d-d4-nome"></div>
+              <div class="campo"><label>Qtd</label><input type="number" id="d-d4-qty" value="0" min="0"></div>
+              <div class="campo"><label>Valor</label><input type="number" id="d-d4-val" value="0" step="0.01"></div>
+            </div>
+          </div>
+        </div>
+        <div class="acoes align-end">
+          <button class="btn btn-success" id="btn-cadastrar-danca" onclick="cadastrarDancarina()">Cadastrar</button>
+          <button class="btn btn-ghost hidden" id="btn-cancelar-danca" onclick="cancelarEdicaoDanca()">Cancelar</button>
+          <button class="btn btn-ghost" onclick="listarDancarinas()">Listar Todas</button>
+        </div>
+      </div>
+
+      <div class="card subpainel sub-dancarinas-cadastro">
+        <div class="card-header"><h3>Dançarinas Cadastradas</h3></div>
+        <div class="resultado" id="r-dancarinas"><span class="vazio">Nenhuma dançarina cadastrada.</span></div>
+      </div>
+
+      <div class="card subpainel sub-dancarinas-lancar">
+        <div class="card-header"><h3>Lançar Show na Folha</h3><span class="badge badge-info">Novo Show</span></div>
+        <div class="grid-3-inline">
+          <div class="campo"><label>Data</label><input type="date" id="sh-data"></div>
+          <div class="campo grid-span-2">
+            <label>Dançarinas (segure Ctrl para selecionar várias)</label>
+            <select id="sh-danc" multiple class="min-h-120"></select>
+          </div>
+          <div class="campo"><label>Nº Linha (1-23)</label><input type="number" id="sh-linha" value="1" min="1" max="23"></div>
+          <div class="campo"><label>Valor por Dança (R$)</label><input type="number" id="sh-valor" step="0.01" value="160"></div>
+          <div class="campo"><label>Quartos</label><input type="number" id="sh-quartos" value="1" min="1"></div>
+          <div class="campo"><label>Tempo</label>
+            <select id="sh-tempo">
+              <option value="30 min">30 min</option><option value="60 min">60 min</option><option value="Personalizado">Personalizado</option>
+            </select>
+          </div>
+          <div class="campo"><label>Hora Entrada</label><input type="time" id="sh-hrin" value="21:00"></div>
+          <div class="campo"><label>Hora Saída</label><input type="time" id="sh-hrout" value="21:30"></div>
+          <div class="campo"><label>Tipo</label>
+            <select id="sh-tipo"><option value="FX">FX</option><option value="FL">FL</option></select>
+          </div>
+        </div>
+        <div class="acoes mt-16">
+          <button class="btn btn-primary" onclick="lancarShow()">Lançar Show</button>
+          <button class="btn btn-ghost" onclick="verShows()">Ver Shows do Dia</button>
+        </div>
+      </div>
+
+      <div class="card subpainel sub-dancarinas-shows-dia">
+        <div class="card-header"><h3>Shows Lançados</h3></div>
+        <div class="resultado" id="r-shows"><span class="vazio">Nenhum show lançado ainda.</span></div>
+      </div>
+    </div>
+
+    <!-- FUNCIONÁRIOS -->
+    <div class="painel" id="p-funcionarios">
+      <div class="card">
+        <div class="card-header"><h3>Cadastrar Funcionário</h3><span class="badge badge-success">Novo</span></div>
+        <div class="grid-4-inline">
+          <div class="campo"><label>Nome Completo</label><input type="text" id="f-nome" placeholder="Ex: João Silva"></div>
+          <div class="campo"><label>Cargo</label><input type="text" id="f-cargo" placeholder="Ex: Segurança"></div>
+          <div class="campo"><label>Telefone</label><input type="text" id="f-tel" placeholder="(11) 99999-0000"></div>
+          <div class="acoes align-end">
+            <button class="btn btn-success" onclick="cadastrarFuncionario()">Cadastrar</button>
+            <button class="btn btn-ghost" onclick="listarFuncionarios()">Listar</button>
+          </div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><h3>Funcionários Cadastrados</h3></div><div class="resultado" id="r-funcionarios"><span class="vazio">Nenhum funcionário cadastrado.</span></div></div>
+    </div>
+
+    <!-- VALES -->
+    <div class="painel" id="p-vales">
+      <div class="card">
+        <div class="card-header"><h3>Cadastrar Vale</h3><span class="badge badge-warning">Novo Vale</span></div>
+        <div class="grid-5-inline">
+          <div class="campo"><label>Tipo</label>
+            <select id="v-tipo"><option value="dancarina">Dançarina</option><option value="funcionario">Funcionário</option></select>
+          </div>
+          <div class="campo"><label>Pessoa</label><select id="v-pessoa"></select></div>
+          <div class="campo"><label>Valor (R$)</label><input type="number" id="v-valor" step="0.01" value="50"></div>
+          <div class="campo"><label>Data</label><input type="date" id="v-data"></div>
+          <div class="campo"><label>Descrição</label><input type="text" id="v-desc" placeholder="Ex: Adiantamento"></div>
+          <div class="campo"><label>Gerar saída no caixa</label>
+            <select id="v-gerar-saida"><option value="sim">Sim</option><option value="nao">Não</option></select>
+          </div>
+          <div class="acoes align-end">
+            <button class="btn btn-primary" onclick="cadastrarVale()">Lançar Vale</button>
+            <button class="btn btn-ghost" onclick="listarVales()">Listar Todos</button>
+          </div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><h3>Vales Lançados</h3></div><div class="resultado" id="r-vales"><span class="vazio">Nenhum vale registrado.</span></div></div>
+    </div>
+
+    <!-- RELATÓRIOS -->
+    <div class="painel" id="p-relatorios">
+      <div class="card">
+        <div class="card-header"><h3>Relatórios</h3><span class="badge badge-warning">Análise</span></div>
+        <div class="grid-report-inline">
+          <div class="campo"><label>Data para Consulta</label><input type="date" id="rel-data"></div>
+          <div class="acoes align-end">
+            <button class="btn btn-gold" onclick="relSaidas()">📤 Saídas p/ Categoria</button>
+            <button class="btn btn-primary" onclick="relResumo()">💰 Resumo do Caixa</button>
+            <button class="btn btn-success" onclick="relTotalDancarinas()">💃 Total Dançarinas</button>
+            <button class="btn btn-ghost" onclick="exportarCSV()">📥 Exportar CSV</button>
+          </div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><h3>Resultado</h3></div><div class="resultado" id="r-relatorios"><span class="vazio">Selecione um relatório acima.</span></div></div>
+    </div>
+
+    <!-- PRINT -->
+    <div class="painel" id="p-print">
+      <div class="card print-title-card">
+        <div class="print-brand">BIMBAR</div>
+        <div class="print-subtitle">Relatório de Fechamento Diário</div>
+        <div class="print-date" id="print-data"></div>
+      </div>
+      <div class="grid-2 mb-16">
+        <div class="card">
+          <div class="card-header"><h3>💰 Resumo do Caixa</h3></div>
+          <div class="resumo-card" id="print-resumo-caixa">
+            <div class="resumo-item"><span class="rotulo">📅 Data</span><span class="vd" id="p-data">-</span></div>
+            <div class="resumo-item"><span class="rotulo">💰 Troco Inicial</span><span class="vd" id="p-troco">-</span></div>
+            <div class="resumo-item"><span class="rotulo">🍺 Comandas</span><span class="vd" id="p-comandas">-</span></div>
+            <div class="resumo-item"><span class="rotulo">🎫 Comanda Inicial</span><span class="vd" id="p-comanda-inicio">-</span></div>
+            <div class="resumo-item"><span class="rotulo">🎫 Comanda Final</span><span class="vd" id="p-comanda-fim">-</span></div>
+            <div class="resumo-item"><span class="rotulo">💳 Cartões</span><span class="vd" id="p-cartoes">-</span></div>
+            <div class="resumo-item"><span class="rotulo">💵 Dinheiro</span><span class="vd" id="p-especies">-</span></div>
+            <div class="resumo-item"><span class="rotulo">📥 Total Entradas</span><span class="vd" id="p-entradas">-</span></div>
+            <div class="resumo-item"><span class="rotulo">📤 Total Saídas</span><span class="vd primary-text" id="p-saidas-val">-</span></div>
+            <div class="resumo-item"><span class="rotulo">✅ Saldo Final</span><span class="vd" id="p-saldo">-</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>📤 Saídas por Categoria</h3></div>
+          <div class="resultado no-max-height" id="p-print-saidas"><span class="vazio">Sem saídas.</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>💃 Financeiro Dançarinas</h3></div>
+        <div class="resultado no-max-height" id="p-print-dancarinas"><span class="vazio">Nenhuma dançarina.</span></div>
+      </div>
+      <div class="card print-footer-card">
+        <div class="print-footer-text">Documento gerado automaticamente pelo Sistema Bimbar • <span id="print-gerado-em"></span></div>
+      </div>
+      <div class="acoes justify-center mt-16">
+        <button class="btn btn-primary" onclick="imprimir()">🖨️ Salvar como PDF</button>
+        <button class="btn btn-ghost" onclick="voltarPainel()">Voltar</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/app.bundle.js"></script>
+</body>
+</html>
