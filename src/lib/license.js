@@ -1,7 +1,7 @@
 import { query, run } from './database.js'
 
 // Configuração do servidor
-const DEFAULT_SERVER_URL = 'https://api.bimbar.com.br' // Substitua pela sua URL
+const DEFAULT_SERVER_URL = '' // Configurar no app em Configurações > Servidor de Ativação
 
 export async function getServerUrl() {
   const rows = await query("SELECT valor FROM config WHERE chave = 'server_url'")

@@ -89,12 +89,28 @@ async function handleAtivacao(e) {
 }
 window.handleAtivacao = handleAtivacao
 
+const ALLOWED_ACTIONS = new Set([
+  'lancarSaidaRapida','lancarShowRapido','abrirCaixa','fecharCaixa','excluirCaixa',
+  'listarCaixas','lancarSaida','verSaidas','excluirSaida',
+  'cadastrarDancarina','listarDancarinas','editarDancarina','excluirDancarina',
+  'carregarDancarinasSelect','lancarShow','verShows','excluirShow',
+  'cadastrarFuncionario','listarFuncionarios','excluirFuncionario',
+  'carregarPessoasVale','cadastrarVale','listarVales','pagarVale','excluirVale',
+  'relSaidas','relResumo','relTotalDancarinas','exportarCSV',
+  'gerarPDF','imprimir','voltarPainel',
+  'abrirPainel','abrirAbaDancarinas','toggleSidebar','sair',
+  'salvarConfigServidor','testarConexaoServidor',
+  'carregarOperacao','cancelarEdicaoDanca'
+])
+
 document.addEventListener('click', async e => {
   const btn = e.target.closest('[data-action]')
   if (!btn) return
   const action = btn.dataset.action
   const id = btn.dataset.id
-  if (typeof window[action] === 'function') await window[action](e, id)
+  if (ALLOWED_ACTIONS.has(action) && typeof window[action] === 'function') {
+    await window[action](e, id)
+  }
 })
 
 document.addEventListener('change', e => {
@@ -102,8 +118,19 @@ document.addEventListener('change', e => {
 })
 
 // ===== LOGIN =====
+let loginAttempts = 0
+let loginBlockedUntil = 0
+
 async function handleLogin(e) {
   e.preventDefault()
+
+  const now = Date.now()
+  if (now < loginBlockedUntil) {
+    const s = Math.ceil((loginBlockedUntil - now) / 1000)
+    $('erro-login').textContent = `Aguarde ${s}s para nova tentativa`
+    return
+  }
+
   const username = v('login-usuario')
   const password = v('login-senha')
   const erro = $('erro-login')
@@ -128,12 +155,23 @@ async function handleLogin(e) {
   }
 
   const users = await query('SELECT * FROM usuarios WHERE username = ? AND ativo = 1', [username])
-  if (users.length === 0) { erro.textContent = 'Usuário ou senha incorretos'; return }
+  if (users.length === 0) {
+    loginAttempts++
+    if (loginAttempts >= 5) { loginBlockedUntil = Date.now() + 30000; loginAttempts = 0 }
+    erro.textContent = 'Usuário ou senha incorretos'
+    return
+  }
 
   const user = users[0]
   const ok = await verifyPassword(password, user.salt, user.hash)
-  if (!ok) { erro.textContent = 'Usuário ou senha incorretos'; return }
+  if (!ok) {
+    loginAttempts++
+    if (loginAttempts >= 5) { loginBlockedUntil = Date.now() + 30000; loginAttempts = 0 }
+    erro.textContent = 'Usuário ou senha incorretos'
+    return
+  }
 
+  loginAttempts = 0
   usuarioAtual = user
   mostrarMain()
   if (licenseInfo) {
@@ -603,6 +641,13 @@ async function relTotalDancarinas() {
 }
 window.relTotalDancarinas = relTotalDancarinas
 
+function escCsv(val) {
+  const s = String(val ?? '')
+  if (/^[=+\-@]/.test(s)) return "'" + s
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"'
+  return s
+}
+
 async function exportarCSV() {
   const data = v('rel-data') || hojeISO()
   try {
@@ -612,11 +657,11 @@ async function exportarCSV() {
       relatorioService.totalDancarinas(data)
     ])
     let csv = '=== SAÍDAS POR CATEGORIA ===\nCategoria,Quantidade,Total\n'
-    csv += saidas.map(s => `${s.categoria},${s.quantidade},${s.total}`).join('\n')
+    csv += saidas.map(s => `${escCsv(s.categoria)},${s.quantidade},${s.total}`).join('\n')
     csv += '\n\n=== RESUMO CAIXA ===\n'
-    if (resumo) csv += Object.entries(resumo).map(([k, v]) => `${k},${v}`).join('\n')
+    if (resumo) csv += Object.entries(resumo).map(([k, v]) => `${escCsv(k)},${escCsv(v)}`).join('\n')
     csv += '\n\n=== TOTAL DANÇARINAS ===\nDançarina,Danças,Valor,Quartos\n'
-    csv += dancarinas.map(d => `${d.nome},${d.total_dancas},${d.valor_total},${d.total_quartos}`).join('\n')
+    csv += dancarinas.map(d => `${escCsv(d.nome)},${d.total_dancas},${d.valor_total},${d.total_quartos}`).join('\n')
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -693,7 +738,7 @@ function inicializarApp() {
 async function carregarConfig() {
   try {
     const url = await getServerUrl()
-    $('cfg-server-url').value = url === 'https://api.bimbar.com.br' ? '' : url
+    $('cfg-server-url').value = url
 
     if (licenseInfo) {
       $('cfg-lic-tipo').textContent = licenseInfo.tipoLabel || licenseInfo.tipo || '-'
@@ -783,7 +828,7 @@ async function init() {
     mostrarAtivacao()
   } catch (err) {
     console.error('Erro ao iniciar:', err)
-    document.body.innerHTML = `<div style="padding:40px;color:red">Erro ao iniciar: ${err.message}</div>`
+    document.body.innerHTML = `<div style="padding:40px;color:red">Erro ao iniciar: ${esc(err.message)}</div>`
   }
 }
 

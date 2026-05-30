@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bimbar - Gestão de Casas Noturnas</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: #0a0a12; color: #e8e8f0; }
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255,59,111,0.08) 0%, transparent 70%);
+}
+.hero h1 {
+  font-size: 48px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ff3b6f, #f0b429);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.hero p.sub { color: #666; font-size: 18px; margin-bottom: 40px; }
+.badge-device {
+  display: inline-block;
+  background: rgba(255,59,111,0.15);
+  color: #ff3b6f;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 30px;
+}
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  max-width: 900px;
+  width: 100%;
+  margin: 40px auto;
+}
+.feature {
+  background: #12121e;
+  border: 1px solid #2a2a4a;
+  border-radius: 16px;
+  padding: 24px;
+  text-align: left;
+}
+.feature h3 { font-size: 16px; margin-bottom: 8px; color: #f0b429; }
+.feature p { font-size: 13px; color: #9898b0; line-height: 1.6; }
+.cta {
+  margin-top: 40px;
+  display: inline-block;
+  background: #ff3b6f;
+  color: white;
+  padding: 14px 40px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.cta:hover { background: #e62e5c; }
+.section {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 60px 20px;
+}
+.section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #ff3b6f;
+}
+.section p, .section li { color: #9898b0; line-height: 1.8; font-size: 15px; }
+.section ul { list-style: none; margin-top: 16px; }
+.section li { padding: 8px 0; }
+.section li::before { content: '✓ '; color: #34d399; font-weight: 700; }
+footer {
+  text-align: center;
+  padding: 40px;
+  color: #555;
+  font-size: 12px;
+  border-top: 1px solid #2a2a4a;
+}
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+.plan {
+  background: #12121e;
+  border: 1px solid #2a2a4a;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+}
+.plan.featured { border-color: #f0b429; box-shadow: 0 0 30px rgba(240,180,41,0.1); }
+.plan h3 { font-size: 18px; color: #f0b429; margin-bottom: 8px; }
+.plan .price { font-size: 32px; font-weight: 800; margin: 16px 0; }
+.plan .price small { font-size: 14px; font-weight: 400; color: #666; }
+.plan ul { text-align: left; margin: 16px 0; }
+.plan li { padding: 6px 0; font-size: 13px; color: #9898b0; }
+.plan li::before { content: '✓ '; color: #34d399; }
+.plan .cta-small {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  background: var(--p, #ff3b6f);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+}
+@media (max-width: 600px) {
+  .hero h1 { font-size: 32px; }
+  .features { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="badge-device">📱 100% Offline • Android</div>
+  <h1>Bimbar</h1>
+  <p class="sub">Gestão Premium para Casas Noturnas e Eventos</p>
+  <div class="features">
+    <div class="feature">
+      <h3>⚡ Operação</h3>
+      <p>Controle de entrada, saídas, shows e comissões em tempo real. Tudo na palma da mão.</p>
+    </div>
+    <div class="feature">
+      <h3>💰 Caixa Diário</h3>
+      <p>Abertura e fechamento de caixa, comanda, cartão, dinheiro. Diferença calculada automaticamente.</p>
+    </div>
+    <div class="feature">
+      <h3>💃 Dançarinas & Shows</h3>
+      <p>Cadastro, comissões por dança, linhas de show (1-23), múltiplas dançarinas por apresentação.</p>
+    </div>
+    <div class="feature">
+      <h3>📊 Relatórios</h3>
+      <p>Saídas por categoria, resumo de caixa, total por dançarina, exportação CSV.</p>
+    </div>
+    <div class="feature">
+      <h3>👥 Funcionários & Vales</h3>
+      <p>Cadastro de funcionários, controle de vales com limite de 50% do valor dos shows.</p>
+    </div>
+    <div class="feature">
+      <h3>🔒 100% Offline</h3>
+      <p>Funciona sem internet. Banco SQLite local. Seus dados nunca saem do dispositivo.</p>
+    </div>
+  </div>
+  <a class="cta" href="#planos">Ver Planos</a>
+</section>
+
+<section class="section" id="planos">
+  <h2>💎 Planos</h2>
+  <div class="pricing-grid">
+    <div class="plan">
+      <h3>Single</h3>
+      <div class="price">R$ 1.500</div>
+      <ul>
+        <li>1 dispositivo Android</li>
+        <li>Atualizações vitalícias</li>
+        <li>Suporte por WhatsApp</li>
+        <li>Licença perpétua</li>
+      </ul>
+      <a class="cta-small" href="mailto:vendas@bimbar.com.br" style="--p:#ff3b6f">Consultar</a>
+    </div>
+    <div class="plan featured">
+      <h3>⭐ Enterprise</h3>
+      <div class="price">R$ 4.500</div>
+      <ul>
+        <li>Dispositivos ilimitados</li>
+        <li>Atualizações vitalícias</li>
+        <li>Suporte prioritário 24h</li>
+        <li>Personalização de relatórios</li>
+        <li>Treinamento presencial</li>
+      </ul>
+      <a class="cta-small" href="mailto:vendas@bimbar.com.br" style="--p:#f0b429">Consultar</a>
+    </div>
+    <div class="plan">
+      <h3>Assinatura</h3>
+      <div class="price">R$ 97 <small>/mês</small></div>
+      <ul>
+        <li>1 dispositivo Android</li>
+        <li>Atualizações inclusas</li>
+        <li>Suporte por WhatsApp</li>
+        <li>Cancele quando quiser</li>
+      </ul>
+      <a class="cta-small" href="mailto:vendas@bimbar.com.br" style="--p:#34d399">Assinar</a>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>🛡️ Como funciona a ativação</h2>
+  <p>Ao adquirir o Bimbar, você recebe uma <strong>chave de ativação única</strong> no formato <code style="color:#f0b429">BIMBAR-XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX</code>.</p>
+  <ol style="margin-top:20px;color:#9898b0;line-height:2">
+    <li>1. Instale o APK no seu dispositivo Android</li>
+    <li>2. Abra o aplicativo</li>
+    <li>3. Insira sua chave de ativação na tela inicial</li>
+    <li>4. (Opcional) Vá em Configurações e informe a URL do seu servidor de ativação para bloquear cópias</li>
+    <li>5. Pronto! No primeiro acesso, cadastre seu usuário admin e uma senha forte</li>
+  </ol>
+</section>
+
+<section class="section">
+  <h2>🌐 Servidor de Ativação (opcional)</h2>
+  <p style="color:#9898b0">O Bimbar pode opcionalmente usar um servidor próprio para impedir cópias da licença.</p>
+  <ol style="margin-top:12px;color:#9898b0;line-height:2;text-align:left;max-width:500px;margin:12px auto 0">
+    <li>1. Faça upload da pasta <code style="color:#f0b429">server/</code> para um VPS</li>
+    <li>2. Instale as dependências: <code style="color:#34d399">npm install --production</code></li>
+    <li>3. Rode com PM2: <code style="color:#34d399">pm2 start index.js --name bimbar-server</code></li>
+    <li>4. Configure Nginx + HTTPS (obrigatório no Android)</li>
+    <li>5. No app, vá em Configurações e informe a URL do servidor</li>
+  </ol>
+  <p style="margin-top:16px;font-size:13px;color:#666">Sem servidor, o app funciona normalmente com validação local offline.</p>
+</section>
+
+<section class="section">
+  <h2>🔑 Chaves de teste</h2>
+  <p style="color:#666;font-size:13px;margin-bottom:16px">Para desenvolvedores: gere suas próprias licenças de teste executando o script no servidor.</p>
+  <pre style="background:#1a1a2e;padding:16px;border-radius:8px;text-align:left;font-size:12px;color:#34d399;overflow-x:auto">cd server
+npm install
+node generate-test-licenses.js</pre>
+  <p style="margin-top:16px;font-size:13px;color:#666">As licenças geradas serão salvas em <code style="color:#f0b429">test-licenses.txt</code></p>
+</section>
+
+<section class="section">
+  <h2>📥 Download</h2>
+  <p>APK assinado versão 1.0.0 — compatível com Android 8.0+ (API 26+).</p>
+  <a class="cta" href="Bimbar-v1.0.0-release.apk" style="margin-top:20px;display:inline-block">📲 Baixar APK</a>
+  <p style="margin-top:12px;font-size:12px;color:#555">SHA-256: consulte o arquivo de checksum</p>
+</section>
+
+<footer>
+  <p>Bimbar App © 2025 — Sistema de Gestão para Casas Noturnas</p>
+  <p style="margin-top:4px">contato@bimbar.com.br</p>
+</footer>
+
+</body>
+</html>

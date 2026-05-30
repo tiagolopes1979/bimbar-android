@@ -26,7 +26,7 @@ async function initWebSQLite() {
   if (!document.querySelector('jeep-sqlite')) {
     const jeepSqlite = document.createElement('jeep-sqlite')
     jeepSqlite.setAttribute('autoSave', 'true')
-    jeepSqlite.setAttribute('wasmPath', '/assets/wasm')
+    jeepSqlite.setAttribute('wasmPath', './assets/wasm')
     document.body.appendChild(jeepSqlite)
   }
   await customElements.whenDefined('jeep-sqlite')

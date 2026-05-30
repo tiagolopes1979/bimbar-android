@@ -11,6 +11,7 @@ server/.env
 server/licencas.db
 server/licencas.db-wal
 server/licencas.db-shm
+deploy/*.db
 
 # Test licenses
 test-licenses.txt

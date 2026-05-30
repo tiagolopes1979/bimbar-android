@@ -53,6 +53,7 @@ const LICENSE_TABLE_SQL = `
 `
 
 function tableColumns(tableName) {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) throw new Error('Invalid table name')
   return db.prepare(`PRAGMA table_info(${tableName})`).all().map(col => col.name)
 }
 
@@ -183,12 +184,16 @@ function hashKey(chave) {
 }
 
 // Logging de segurança
+function sanitizeUserAgent(ua) {
+  return String(ua || '').replace(/[<>&'"]/g, '').slice(0, 500)
+}
+
 function logSecurity(ip, userAgent, acao, detalhes) {
   try {
     db.prepare(`
       INSERT INTO audit_log (ip, user_agent, acao, detalhes)
       VALUES (?, ?, ?, ?)
-    `).run(ip, userAgent, acao, JSON.stringify(detalhes))
+    `).run(ip, sanitizeUserAgent(userAgent), acao, JSON.stringify(detalhes))
   } catch (e) {
     console.error('Erro ao logar:', e)
   }
@@ -296,7 +301,20 @@ const app = express()
 
 // Segurança com Helmet
 app.use(helmet({
-  contentSecurityPolicy: false, // Desabilitado para API
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      scriptSrc: ["'none'"],
+      styleSrc: ["'none'"],
+      imgSrc: ["'none'"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      formAction: ["'none'"],
+    }
+  },
   crossOriginEmbedderPolicy: true,
   crossOriginOpenerPolicy: true,
   crossOriginResourcePolicy: { policy: "same-site" },
@@ -317,9 +335,7 @@ function isAllowedOrigin(origin) {
   if (process.env.ALLOWED_ORIGINS) {
     return process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).includes(origin)
   }
-  if (process.env.NODE_ENV === 'production') return false
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
-}
+  return false // Negar todas origens por padrão
 
 // CORS restrito
 app.use(cors({
@@ -373,23 +389,22 @@ app.post('/api/v2/ativar', strictLimiter, async (req, res) => {
     
     if (!licenca) {
       logSecurity(ip, userAgent, 'ativacao_failed', { reason: 'license_not_found' })
-      return res.status(404).json({ valido: false, motivo: 'Chave não encontrada' })
+      return res.status(401).json({ valido: false, motivo: 'Chave de ativação inválida' })
     }
     
     // Verificar status
     if (licenca.status === 'bloqueada') {
       logSecurity(ip, userAgent, 'ativacao_failed', { reason: 'license_blocked', licenca_id: licenca.id })
-      return res.status(403).json({ valido: false, motivo: 'Licença bloqueada' })
+      return res.status(401).json({ valido: false, motivo: 'Chave de ativação inválida' })
     }
     
     if (licenca.status === 'expirada') {
       logSecurity(ip, userAgent, 'ativacao_failed', { reason: 'license_expired', licenca_id: licenca.id })
-      return res.status(403).json({ valido: false, motivo: 'Licença expirada' })
+      return res.status(401).json({ valido: false, motivo: 'Chave de ativação inválida' })
     }
     
     // Verificar se já está ativa em outro dispositivo
     if (licenca.status === 'ativa' && licenca.device_uuid !== device_uuid) {
-      // Incrementar tentativas falhas
       db.prepare('UPDATE licencas SET tentativas_falhas = tentativas_falhas + 1 WHERE id = ?')
         .run(licenca.id)
       
@@ -398,18 +413,18 @@ app.post('/api/v2/ativar', strictLimiter, async (req, res) => {
         existing_device: licenca.device_uuid 
       })
       
-      return res.status(409).json({ 
+      return res.status(401).json({ 
         valido: false, 
-        motivo: 'Licença já ativa em outro dispositivo' 
+        motivo: 'Chave de ativação inválida'
       })
     }
     
     // Verificar limite de tentativas falhas
     if (licenca.tentativas_falhas >= 5) {
       logSecurity(ip, userAgent, 'ativacao_blocked', { licenca_id: licenca.id })
-      return res.status(429).json({ 
+      return res.status(401).json({ 
         valido: false, 
-        motivo: 'Muitas tentativas falhas. Contate o suporte.' 
+        motivo: 'Chave de ativação inválida'
       })
     }
     
@@ -487,9 +502,9 @@ app.post('/api/v2/ativar', strictLimiter, async (req, res) => {
         limite: limiteDispositivos
       })
       
-      return res.status(409).json({ 
+      return res.status(401).json({ 
         valido: false, 
-        motivo: `Limite de ${limiteDispositivos} dispositivo(s) atingido para esta licença` 
+        motivo: 'Chave de ativação inválida'
       })
     }
     

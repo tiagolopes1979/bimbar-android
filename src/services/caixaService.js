@@ -53,10 +53,10 @@ export async function fecharCaixa(data, dados) {
   return { data, diferenca }
 }
 
-export async function excluirCaixa(data) {
-  const caixa = await getCaixa(data)
-  if (!caixa) throw new Error('Caixa não encontrado')
-  await run('UPDATE caixa_saidas SET cancelada = 1, motivo_cancelamento = ?, cancelada_em = datetime(\'now\') WHERE caixa_diario_id = ?', ['Caixa cancelado', caixa.id])
-  await run('UPDATE shows_controle SET cancelado = 1, motivo_cancelamento = ?, cancelado_em = datetime(\'now\') WHERE caixa_diario_id = ?', ['Caixa cancelado', caixa.id])
-  await run('DELETE FROM caixa_diario WHERE data = ?', [data])
+export async function excluirCaixa(id) {
+  const rows = await query('SELECT * FROM caixa_diario WHERE id = ?', [id])
+  if (rows.length === 0) throw new Error('Caixa não encontrado')
+  await run('UPDATE caixa_saidas SET cancelada = 1, motivo_cancelamento = ?, cancelada_em = datetime(\'now\') WHERE caixa_diario_id = ?', ['Caixa cancelado', id])
+  await run('UPDATE shows_controle SET cancelado = 1, motivo_cancelamento = ?, cancelado_em = datetime(\'now\') WHERE caixa_diario_id = ?', ['Caixa cancelado', id])
+  await run('DELETE FROM caixa_diario WHERE id = ?', [id])
 }

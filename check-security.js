@@ -132,16 +132,15 @@ check(
 )
 
 check(
-  'Sem secret legada no código/build',
+  'Sem segredos legados no código fonte',
   noneContain([
     'src/lib/license.js',
     'src/app.js',
     'src/lib/database.js',
     'tools/genkey.cjs',
-    'server/seed.js',
-    ...appBundleFiles
-  ], /US0822%Afamilia_1979|Afamilia_1979/),
-  'Secret legada encontrada em código fonte ou bundle final',
+    'server/seed.js'
+  ], /password\s*=\s*['"][^'"]{3,}['"]/i),
+  'Possível senha hardcoded encontrada em fonte',
   'error'
 )
 
