@@ -21,7 +21,9 @@
     <p style="font-size:12px;color:#666;margin-bottom:20px">Ative sua licença para começar</p>
     <form id="form-ativacao" onsubmit="handleAtivacao(event)">
       <label>Chave de Ativação</label>
-      <input type="text" id="ativacao-chave" placeholder="BIMBAR-XXXX-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:1px;text-align:center" required>
+      <input type="text" id="ativacao-chave" placeholder="BIMBAR-XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX" style="text-transform:uppercase;letter-spacing:1px;text-align:center" required>
+      <label>Servidor de Ativação</label>
+      <input type="url" id="ativacao-server-url" placeholder="https://api.seudominio.com" autocomplete="url">
       <button type="submit">Ativar</button>
       <div class="erro" id="erro-ativacao"></div>
     </form>
@@ -81,6 +83,9 @@
       </button>
       <button class="nav-btn" data-painel="relatorios" onclick="abrirPainel('relatorios')">
         <span class="icone">📊</span><span>Relatórios</span>
+      </button>
+      <button class="nav-btn" data-painel="config" onclick="abrirPainel('config')">
+        <span class="icone">⚙️</span><span>Configurações</span>
       </button>
     </nav>
 
@@ -413,6 +418,42 @@
         </div>
       </div>
       <div class="card"><div class="card-header"><h3>Resultado</h3></div><div class="resultado" id="r-relatorios"><span class="vazio">Selecione um relatório acima.</span></div></div>
+    </div>
+
+    <!-- CONFIGURAÇÕES -->
+    <div class="painel" id="p-config">
+      <div class="card">
+        <div class="card-header"><h3>⚙️ Servidor de Ativação</h3><span class="badge badge-info">Segurança</span></div>
+        <p style="color:#9898b0;font-size:13px;margin-bottom:16px">
+          Configure a URL do servidor de ativação para bloquear cópias da sua licença.
+          O app tentará ativar online primeiro; se o servidor estiver offline, usa validação local.
+        </p>
+        <div class="grid-2">
+          <div class="campo">
+            <label>URL do Servidor</label>
+            <input type="url" id="cfg-server-url" placeholder="https://bimbar.seusite.com" style="font-family:monospace;font-size:13px">
+            <small style="color:#555">Ex: https://bimbar.meuservidor.com</small>
+          </div>
+          <div class="acoes align-end" style="gap:8px">
+            <button class="btn btn-primary" onclick="salvarConfigServidor()">💾 Salvar</button>
+            <button class="btn btn-ghost" onclick="testarConexaoServidor()">📡 Testar</button>
+          </div>
+        </div>
+        <div id="cfg-status" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3>🔐 Licença</h3></div>
+        <div style="font-size:13px;color:#9898b0;line-height:1.8">
+          <div><strong>Tipo:</strong> <span id="cfg-lic-tipo">-</span></div>
+          <div><strong>Email:</strong> <span id="cfg-lic-email">-</span></div>
+          <div><strong>Expira em:</strong> <span id="cfg-lic-exp">-</span></div>
+          <div><strong>Ativação:</strong> <span id="cfg-lic-origem">-</span></div>
+        </div>
+        <div class="acoes mt-14">
+          <button class="btn btn-ghost" onclick="sair()">Sair da conta</button>
+        </div>
+      </div>
     </div>
 
     <!-- PRINT -->

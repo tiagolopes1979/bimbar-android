@@ -1,0 +1,42 @@
+# Licenças de Teste - NÃO COMMITAR
+
+Estas licenças são apenas para desenvolvimento e teste.
+
+## Como gerar novas licenças
+
+```bash
+cd server
+npm install
+LICENSE_SECRET=sua_secret_aqui node generate-test-licenses.js
+```
+
+## Comandos úteis
+
+```bash
+# Gerar licença única
+node generate-license.js --tipo single --email cliente@exemplo.com --dias 0
+
+# Gerar licença trial 30 dias
+node generate-license.js --tipo trial --email teste@exemplo.com --dias 30
+
+# Gerar licença enterprise
+node generate-license.js --tipo enterprise --email cliente@exemplo.com --dias 0
+```
+
+## Inserir no banco
+
+```bash
+sqlite3 licencas.db < licenses.sql
+```
+
+## Verificar licenças
+
+```bash
+sqlite3 licencas.db "SELECT * FROM licencas;"
+```
+
+## Remover licenças comprometidas
+
+```sql
+UPDATE licencas SET status = 'bloqueada' WHERE chave_hash = 'HASH_DA_LICENCA';
+```

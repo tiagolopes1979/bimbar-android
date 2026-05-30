@@ -204,13 +204,36 @@ footer {
 
 <section class="section">
   <h2>🛡️ Como funciona a ativação</h2>
-  <p>Ao adquirir o Bimbar, você recebe uma <strong>chave de ativação única</strong> no formato <code style="color:#f0b429">BIMBAR-XXXX-XXXX-XXXX</code>.</p>
+  <p>Ao adquirir o Bimbar, você recebe uma <strong>chave de ativação única</strong> no formato <code style="color:#f0b429">BIMBAR-XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX</code>.</p>
   <ol style="margin-top:20px;color:#9898b0;line-height:2">
     <li>1. Instale o APK no seu dispositivo Android</li>
     <li>2. Abra o aplicativo</li>
     <li>3. Insira sua chave de ativação na tela inicial</li>
-    <li>4. Pronto! Faça login com <strong>admin / admin</strong></li>
+    <li>4. (Opcional) Vá em Configurações e informe a URL do seu servidor de ativação para bloquear cópias</li>
+    <li>5. Pronto! No primeiro acesso, cadastre seu usuário admin e uma senha forte</li>
   </ol>
+</section>
+
+<section class="section">
+  <h2>🌐 Servidor de Ativação (opcional)</h2>
+  <p style="color:#9898b0">O Bimbar pode opcionalmente usar um servidor próprio para impedir cópias da licença.</p>
+  <ol style="margin-top:12px;color:#9898b0;line-height:2;text-align:left;max-width:500px;margin:12px auto 0">
+    <li>1. Faça upload da pasta <code style="color:#f0b429">server/</code> para um VPS</li>
+    <li>2. Instale as dependências: <code style="color:#34d399">npm install --production</code></li>
+    <li>3. Rode com PM2: <code style="color:#34d399">pm2 start index.js --name bimbar-server</code></li>
+    <li>4. Configure Nginx + HTTPS (obrigatório no Android)</li>
+    <li>5. No app, vá em Configurações e informe a URL do servidor</li>
+  </ol>
+  <p style="margin-top:16px;font-size:13px;color:#666">Sem servidor, o app funciona normalmente com validação local offline.</p>
+</section>
+
+<section class="section">
+  <h2>🔑 Chaves de teste</h2>
+  <p style="color:#666;font-size:13px;margin-bottom:16px">Para desenvolvedores: gere suas próprias licenças de teste executando o script no servidor.</p>
+  <pre style="background:#1a1a2e;padding:16px;border-radius:8px;text-align:left;font-size:12px;color:#34d399;overflow-x:auto">cd server
+npm install
+node generate-test-licenses.js</pre>
+  <p style="margin-top:16px;font-size:13px;color:#666">As licenças geradas serão salvas em <code style="color:#f0b429">test-licenses.txt</code></p>
 </section>
 
 <section class="section">

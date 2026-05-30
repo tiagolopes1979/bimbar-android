@@ -1,15 +1,18 @@
 const crypto = require('crypto')
 
-const SECRET = process.env.LICENSE_SECRET || 'bimbar-license-secret-change-in-production-2025'
+const SECRET = process.env.LICENSE_SECRET
+if (!SECRET || SECRET.length < 32) {
+  console.error('Erro: defina LICENSE_SECRET com pelo menos 32 caracteres.')
+  process.exit(1)
+}
 
 function gerarChave(tipo, email, dias) {
-  const payload = `${tipo}|${email}|${dias}`
   const exp = dias > 0 ? Date.now() + dias * 86400000 : 0
-  const data = `${payload}|${exp}`
+  const data = `${tipo}|${email}|${dias}|${exp}`
   const hmac = crypto.createHmac('sha256', SECRET).update(data).digest('hex').substring(0, 16).toUpperCase()
-  const raw = `${tipo}|${email}|${exp}|${hmac}`
-  const key = 'BIMBAR-' + Buffer.from(raw).toString('base64').replace(/=/g, '').substring(0, 32)
-                   .match(/.{1,8}/g).join('-')
+  const raw = `${tipo}|${email}|${dias}|${exp}|${hmac}`
+  const b64 = Buffer.from(raw).toString('base64').replace(/=/g, '')
+  const key = 'BIMBAR-' + b64.match(/.{1,8}/g).join('-')
   return key
 }
 
@@ -18,10 +21,10 @@ function validarChave(key) {
     const clean = key.replace(/^BIMBAR-/, '').replace(/-/g, '')
     const decoded = Buffer.from(clean, 'base64').toString('utf-8')
     const parts = decoded.split('|')
-    if (parts.length !== 4) return { valido: false, motivo: 'Formato inválido' }
+    if (parts.length !== 5) return { valido: false, motivo: 'Formato inválido' }
 
-    const [tipo, email, expStr, hmac] = parts
-    const data = `${tipo}|${email}|${expStr}`
+    const [tipo, email, diasStr, expStr, hmac] = parts
+    const data = `${tipo}|${email}|${diasStr}|${expStr}`
     const expectedHmac = crypto.createHmac('sha256', SECRET).update(data).digest('hex').substring(0, 16).toUpperCase()
 
     if (hmac !== expectedHmac) return { valido: false, motivo: 'Chave inválida' }

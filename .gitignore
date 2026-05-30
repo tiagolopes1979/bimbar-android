@@ -4,3 +4,28 @@ www/app.bundle.js
 *.log
 .DS_Store
 *.keystore
+*.jks
+
+# Server secrets
+server/.env
+server/licencas.db
+server/licencas.db-wal
+server/licencas.db-shm
+
+# Test licenses
+test-licenses.txt
+test-licenses.md
+
+# Build artifacts
+dist/
+build/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+Thumbs.db

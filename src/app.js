@@ -1,4 +1,4 @@
-import { initDatabase, query, run, verifyPassword } from './lib/database.js'
+import { initDatabase, query, run, verifyPassword, hashPassword } from './lib/database.js'
 import * as dancarinaService from './services/dancarinaService.js'
 import * as caixaService from './services/caixaService.js'
 import * as saidaService from './services/saidaService.js'
@@ -7,10 +7,12 @@ import * as funcionarioService from './services/funcionarioService.js'
 import * as valeService from './services/valeService.js'
 import * as operacaoService from './services/operacaoService.js'
 import * as relatorioService from './services/relatorioService.js'
-import { validarChave, isAtivado } from './lib/license.js'
+import { validarChave, isAtivado, ativarChave, getServerUrl, setServerUrl, testarConexaoServidor } from './lib/license.js'
+import { isDeviceCompromised, verifyAppIntegrity } from './lib/security.js'
 
 let usuarioAtual = null
 let licenseInfo = null
+let deviceSecure = true
 
 function fmt(n) { return 'R$ ' + Number(n).toFixed(2).replace('.',',') }
 function fmtPct(n) { return Number(n || 0).toFixed(2).replace('.', ',') + '%' }
@@ -65,14 +67,23 @@ async function handleAtivacao(e) {
   e.preventDefault()
   const key = v('ativacao-chave')
   const erro = $('erro-ativacao')
+  const serverUrlInput = $('ativacao-server-url')
 
-  const result = await validarChave(key)
+  if (serverUrlInput?.value.trim()) {
+    try {
+      await setServerUrl(serverUrlInput.value)
+    } catch (err) {
+      erro.textContent = err.message
+      return
+    }
+  }
+
+  const result = await ativarChave(key)
   if (!result.valido) {
     erro.textContent = result.motivo
     return
   }
 
-  await run('INSERT OR REPLACE INTO config (chave, valor) VALUES (?, ?)', ['license_key', key])
   licenseInfo = result
   mostrarLogin()
 }
@@ -96,6 +107,25 @@ async function handleLogin(e) {
   const username = v('login-usuario')
   const password = v('login-senha')
   const erro = $('erro-login')
+
+  if (!licenseInfo && !(await isAtivado())) {
+    erro.textContent = 'Ative sua licença antes de entrar'
+    mostrarAtivacao()
+    return
+  }
+
+  const totalUsers = await query('SELECT COUNT(*) as total FROM usuarios')
+  if (totalUsers[0]?.total === 0) {
+    if (username.length < 3 || password.length < 8) {
+      erro.textContent = 'Primeiro acesso: use usuário com 3+ caracteres e senha com 8+ caracteres'
+      return
+    }
+    const { salt, hash } = await hashPassword(password)
+    await run(
+      "INSERT INTO usuarios (username, salt, hash, role, nome_completo, ativo) VALUES (?, ?, ?, 'admin', ?, 1)",
+      [username, salt, hash, 'Administrador']
+    )
+  }
 
   const users = await query('SELECT * FROM usuarios WHERE username = ? AND ativo = 1', [username])
   if (users.length === 0) { erro.textContent = 'Usuário ou senha incorretos'; return }
@@ -145,12 +175,13 @@ function abrirPainel(nome) {
   document.querySelector(`.nav-btn[data-painel="${nome}"]`).classList.add('ativo')
   $(`#p-${nome}`).classList.add('ativo')
 
-  const titulos = { operacao:'⚡ Operação', caixa:'💰 Caixa', saidas:'📤 Saídas', dancarinas:'💃 Dançarinas / Shows', funcionarios:'👥 Funcionários', vales:'💳 Vales', relatorios:'📊 Relatórios' }
+  const titulos = { operacao:'⚡ Operação', caixa:'💰 Caixa', saidas:'📤 Saídas', dancarinas:'💃 Dançarinas / Shows', funcionarios:'👥 Funcionários', vales:'💳 Vales', relatorios:'📊 Relatórios', config:'⚙️ Configurações' }
   $('titulo-pagina').textContent = titulos[nome] || nome
 
   if (nome === 'operacao') { carregarDancarinasSelect('op-sh-danc'); carregarOperacao() }
   if (nome === 'dancarinas') carregarDancarinasSelect()
   if (nome === 'vales') carregarPessoasVale()
+  if (nome === 'config') carregarConfig()
 }
 window.abrirPainel = abrirPainel
 
@@ -658,20 +689,100 @@ function inicializarApp() {
   carregarDancarinasSelect('op-sh-danc')
 }
 
+// ===== CONFIGURAÇÕES =====
+async function carregarConfig() {
+  try {
+    const url = await getServerUrl()
+    $('cfg-server-url').value = url === 'https://api.bimbar.com.br' ? '' : url
+
+    if (licenseInfo) {
+      $('cfg-lic-tipo').textContent = licenseInfo.tipoLabel || licenseInfo.tipo || '-'
+      $('cfg-lic-email').textContent = licenseInfo.email || '-'
+      $('cfg-lic-exp').textContent = licenseInfo.exp ? new Date(licenseInfo.exp).toLocaleDateString('pt-BR') : 'Nunca expira'
+    }
+    const originRows = await query("SELECT valor FROM config WHERE chave = 'license_origin'")
+    $('cfg-lic-origem').textContent = originRows.length > 0 ? originRows[0].valor === 'server' ? 'Servidor online ✅' : 'Local (offline) 🔒' : '-'
+  } catch (e) {
+    $('cfg-status').innerHTML = erroHtml('Erro ao carregar: ' + e.message)
+  }
+}
+
+async function salvarConfigServidor() {
+  const url = $('cfg-server-url').value.trim()
+  const status = $('cfg-status')
+  try {
+    await setServerUrl(url)
+    status.innerHTML = sucessoHtml('URL salva com sucesso!')
+  } catch (e) {
+    status.innerHTML = erroHtml(e.message)
+  }
+}
+window.salvarConfigServidor = salvarConfigServidor
+
+async function handleTestarConexao() {
+  const status = $('cfg-status')
+  status.innerHTML = '<span style="color:#f0b429">Testando conexão...</span>'
+  const res = await testarConexaoServidor()
+  status.innerHTML = res.ok ? sucessoHtml(res.motivo) : erroHtml(res.motivo)
+}
+window.testarConexaoServidor = handleTestarConexao
+
 async function init() {
   try {
+    // 1. Verificar segurança do dispositivo
+    const securityCheck = await isDeviceCompromised()
+    if (securityCheck) {
+      document.body.innerHTML = `
+        <div style="padding:40px;color:#ff3b6f;text-align:center;max-width:500px;margin:0 auto">
+          <h2>⚠️ Dispositivo Não Seguro</h2>
+          <p style="color:#9898b0;margin:20px 0">
+            Detectamos que este dispositivo pode estar comprometido (root/jailbreak).
+            Por segurança, o Bimbar não pode ser executado neste ambiente.
+          </p>
+          <p style="color:#666;font-size:14px">
+            Se você acredita que isso é um erro, entre em contato com o suporte.
+          </p>
+        </div>
+      `
+      return
+    }
+
+    deviceSecure = true
+
+    // 2. Verificar integridade do app
+    const integrityCheck = await verifyAppIntegrity()
+    if (!integrityCheck.valid) {
+      document.body.innerHTML = `
+        <div style="padding:40px;color:#ff3b6f;text-align:center;max-width:500px;margin:0 auto">
+          <h2>⚠️ Aplicativo Modificado</h2>
+          <p style="color:#9898b0;margin:20px 0">
+            A integridade do aplicativo não pôde ser verificada.
+            Por favor, reinstale o app da fonte oficial.
+          </p>
+        </div>
+      `
+      return
+    }
+
+    // 3. Inicializar banco de dados
     await initDatabase()
-    const rows = await query('SELECT valor FROM config WHERE chave = ?', ['license_key'])
-    if (rows.length > 0) {
-      const result = await validarChave(rows[0].valor)
-      if (result.valido) {
-        licenseInfo = result
-        mostrarLogin()
-        return
+
+    // 4. Verificar licença
+    if (await isAtivado()) {
+      const rows = await query('SELECT valor FROM config WHERE chave = ?', ['license_key'])
+      if (rows.length > 0) {
+        const result = await validarChave(rows[0].valor)
+        if (result.valido) {
+          licenseInfo = result
+          mostrarLogin()
+          return
+        }
       }
     }
+
     mostrarAtivacao()
   } catch (err) {
+    console.error('Erro ao iniciar:', err)
     document.body.innerHTML = `<div style="padding:40px;color:red">Erro ao iniciar: ${err.message}</div>`
   }
 }

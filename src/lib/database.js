@@ -1,16 +1,35 @@
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite'
+import { Capacitor } from '@capacitor/core'
+import { defineCustomElements as defineJeepSqlite } from 'jeep-sqlite/loader'
 
 let db = null
 let sqliteConn = null
 
 export async function initDatabase() {
+  await initWebSQLite()
   sqliteConn = new SQLiteConnection(CapacitorSQLite)
-  const ret = await sqliteConn.createConnection('bimbar', false, 'no-encryption', 1, false)
+  if (Capacitor.getPlatform() === 'web') {
+    await sqliteConn.initWebStore()
+  }
+  const ret = await sqliteConn.createConnection('bimbar', true, 'AES-256', 1, false)
   await ret.open()
   db = ret
   await createSchema()
-  await seedAdmin()
+  await ensureDeviceUuid()
   return db
+}
+
+async function initWebSQLite() {
+  if (Capacitor.getPlatform() !== 'web') return
+
+  defineJeepSqlite(window)
+  if (!document.querySelector('jeep-sqlite')) {
+    const jeepSqlite = document.createElement('jeep-sqlite')
+    jeepSqlite.setAttribute('autoSave', 'true')
+    jeepSqlite.setAttribute('wasmPath', '/assets/wasm')
+    document.body.appendChild(jeepSqlite)
+  }
+  await customElements.whenDefined('jeep-sqlite')
 }
 
 export function getDb() { return db }
@@ -201,22 +220,23 @@ async function createSchema() {
   `)
 }
 
-async function seedAdmin() {
-  const existing = await query("SELECT id FROM usuarios WHERE username = 'admin'")
-  if (existing.length > 0) return
+async function ensureDeviceUuid() {
+  const rows = await query("SELECT valor FROM config WHERE chave = 'device_uuid'")
+  if (rows.length === 0) {
+    const uuid = crypto.randomUUID()
+    await run("INSERT INTO config (chave, valor) VALUES (?, ?)", ['device_uuid', uuid])
+  }
+}
 
+export async function hashPassword(password) {
   const crypto = window.crypto
   const salt = Array.from(crypto.getRandomValues(new Uint8Array(16)))
     .map(b => b.toString(36).padStart(2, '0')).join('')
   const encoder = new TextEncoder()
-  const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode('admin' + salt), 'PBKDF2', false, ['deriveBits'])
+  const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password + salt), 'PBKDF2', false, ['deriveBits'])
   const hashBuffer = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: encoder.encode(salt), iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256)
   const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(36).padStart(2, '0')).join('')
-
-  await run(
-    "INSERT INTO usuarios (username, salt, hash, role, nome_completo, ativo) VALUES (?, ?, ?, 'admin', 'Administrador', 1)",
-    ['admin', salt, hash]
-  )
+  return { salt, hash }
 }
 
 export async function verifyPassword(password, salt, storedHash) {
