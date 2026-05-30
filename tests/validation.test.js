@@ -7,8 +7,10 @@
  */
 
 import { spawn } from 'child_process'
-import { existsSync, writeFileSync, readFileSync } from 'fs'
+import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs'
 import crypto from 'crypto'
+import sqlite3 from 'better-sqlite3'
+import http from 'http'
 
 // Configurações de teste
 const TEST_DB = 'test_licencas.db'
@@ -74,7 +76,7 @@ async function makeRequest(endpoint, body = {}) {
       }
     }
 
-    const req = require('http').request(options, (res) => {
+    const req = http.request(options, (res) => {
       let responseData = ''
       res.on('data', chunk => responseData += chunk)
       res.on('end', () => {
@@ -96,7 +98,6 @@ async function makeRequest(endpoint, body = {}) {
 function initTestDB() {
   log('INFO', 'Inicializando banco de teste...')
   
-  const sqlite3 = require('better-sqlite3')
   const db = sqlite3(TEST_DB)
   
   db.pragma('journal_mode = WAL')
@@ -141,7 +142,6 @@ function initTestDB() {
 
 // Inserir licença de teste
 function insertTestLicense(tipo, hash) {
-  const sqlite3 = require('better-sqlite3')
   const db = sqlite3(TEST_DB)
   
   const exp_timestamp = null // Vitalício
@@ -159,7 +159,6 @@ function insertTestLicense(tipo, hash) {
 
 // Limpar banco
 function cleanDB() {
-  const sqlite3 = require('better-sqlite3')
   const db = sqlite3(TEST_DB)
   db.exec('DELETE FROM validacoes_dispositivo')
   db.exec('DELETE FROM licencas')
@@ -215,9 +214,9 @@ function stopServer() {
 // Limpar arquivos de teste
 function cleanup() {
   try {
-    if (existsSync(TEST_DB)) require('fs').unlinkSync(TEST_DB)
-    if (existsSync(TEST_DB + '-wal')) require('fs').unlinkSync(TEST_DB + '-wal')
-    if (existsSync(TEST_DB + '-shm')) require('fs').unlinkSync(TEST_DB + '-shm')
+    if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
+    if (existsSync(TEST_DB + '-wal')) unlinkSync(TEST_DB + '-wal')
+    if (existsSync(TEST_DB + '-shm')) unlinkSync(TEST_DB + '-shm')
   } catch (e) {
     // Ignorar
   }
@@ -245,7 +244,6 @@ async function test1_PrimeiraAtivacao() {
     log('PASS', 'Primeira ativação permitida corretamente')
     
     // Verificar no banco
-    const sqlite3 = require('better-sqlite3')
     const db = sqlite3(TEST_DB)
     const validacao = db.prepare(`
       SELECT * FROM validacoes_dispositivo 
@@ -521,7 +519,6 @@ async function test9_BloqueioMuitasTentativas() {
 async function test10_AuditLog() {
   log('STEP', 'TESTE 10: Audit log deve registrar ativações')
   
-  const sqlite3 = require('better-sqlite3')
   const db = sqlite3(TEST_DB)
   
   const count = db.prepare('SELECT COUNT(*) as count FROM audit_log').get().count

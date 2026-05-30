@@ -18,4 +18,7 @@ esbuild.build({
     path.join('node_modules', 'sql.js', 'dist', 'sql-wasm.wasm'),
     path.join(wasmDir, 'sql-wasm.wasm')
   )
-}).catch(() => process.exit(1))
+}).catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

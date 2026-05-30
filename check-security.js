@@ -154,10 +154,11 @@ check(
 )
 
 check(
-  'Usando HTTPS',
-  licenseJs.includes('https://') || licenseJs.match(/https?:\/\/\+/),
-  'Deve usar HTTPS para conexões',
-  'warning'
+  'HTTPS validation enforced',
+  licenseJs.includes("throw new Error('URL deve usar HTTPS") ||
+    licenseJs.includes('HTTPS') && licenseJs.match(/https?:\/\/[^']+|https\:\/\/\+/),
+  'Deve validar e exigir HTTPS para conexões',
+  'error'
 )
 
 // 5. Verificar database

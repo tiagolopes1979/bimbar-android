@@ -13,6 +13,9 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET
 const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH
 const PORT = process.env.PORT || 3000
 const DB_PATH = process.env.DB_PATH || 'licencas.db'
+const LICENSE_TYPES = new Set(['trial', 'single', 'enterprise', 'custom'])
+const LICENSE_STATUSES = new Set(['disponivel', 'ativa', 'bloqueada', 'expirada'])
+const ADMIN_ACTIONS = new Set(['bloquear', 'desbloquear', 'renovar'])
 
 for (const [name, value, expectedLength] of [
   ['JWT_SECRET', JWT_SECRET, 128],
@@ -179,6 +182,30 @@ function normalizeActivationKey(chave) {
   return String(chave || '').trim().toUpperCase()
 }
 
+function isValidActivationKey(chave) {
+  const normalized = normalizeActivationKey(chave)
+  return normalized.length >= 16 &&
+    normalized.length <= 120 &&
+    /^BIMBAR-[A-Z0-9-]+$/.test(normalized)
+}
+
+function isValidDeviceUuid(deviceUuid) {
+  return typeof deviceUuid === 'string' &&
+    deviceUuid.length >= 8 &&
+    deviceUuid.length <= 128 &&
+    /^[a-zA-Z0-9_.:-]+$/.test(deviceUuid)
+}
+
+function isValidSessionToken(token) {
+  return typeof token === 'string' && /^[a-f0-9]{64}$/i.test(token)
+}
+
+function boundedInt(value, fallback, min, max) {
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(Math.max(parsed, min), max)
+}
+
 function hashKey(chave) {
   return createHash('sha256').update(normalizeActivationKey(chave) + LICENSE_SECRET).digest('hex')
 }
@@ -333,9 +360,11 @@ app.use(helmet({
 function isAllowedOrigin(origin) {
   if (!origin) return false
   if (process.env.ALLOWED_ORIGINS) {
-    return process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).includes(origin)
+    const allowed = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+    return allowed.includes(origin)
   }
   return false // Negar todas origens por padrão
+}
 
 // CORS restrito
 app.use(cors({
@@ -366,11 +395,17 @@ app.post('/api/v2/ativar', strictLimiter, async (req, res) => {
   const { chave, device_uuid, device_fingerprint, play_integrity_token } = req.body
   const ip = req.ip
   const userAgent = req.get('user-agent')
+  const activationKey = normalizeActivationKey(chave)
   
   // Validação básica
   if (!chave || !device_uuid || !device_fingerprint) {
     logSecurity(ip, userAgent, 'ativacao_failed', { reason: 'missing_fields' })
     return res.status(400).json({ valido: false, motivo: 'Campos obrigatórios faltando' })
+  }
+
+  if (!isValidActivationKey(activationKey) || !isValidDeviceUuid(device_uuid)) {
+    logSecurity(ip, userAgent, 'ativacao_failed', { reason: 'invalid_input_format' })
+    return res.status(400).json({ valido: false, motivo: 'Dados de ativação inválidos' })
   }
   
   // Verificar segurança do dispositivo
@@ -381,7 +416,7 @@ app.post('/api/v2/ativar', strictLimiter, async (req, res) => {
   }
   
   // Hash da chave para não armazenar texto puro
-  const chaveHash = hashKey(chave)
+  const chaveHash = hashKey(activationKey)
   
   try {
     // Verificar se chave existe
@@ -568,6 +603,10 @@ app.post('/api/v2/validar', (req, res) => {
   if (!session_token || !device_uuid) {
     return res.status(400).json({ valido: false, motivo: 'Token e device_uuid necessários' })
   }
+
+  if (!isValidSessionToken(session_token) || !isValidDeviceUuid(device_uuid)) {
+    return res.status(400).json({ valido: false, motivo: 'Sessão inválida' })
+  }
   
   const tokenHash = createHash('sha256').update(session_token + JWT_SECRET).digest('hex')
   
@@ -630,16 +669,21 @@ app.get('/api/v2/status/:chave_hash', (req, res) => {
 app.post('/api/v2/admin/revisar', adminLimiter, requireAdmin, (req, res) => {
   const { chave, acao, motivo } = req.body
   const ip = req.ip
+  const activationKey = normalizeActivationKey(chave)
   
   if (!chave || !acao) {
     return res.status(400).json({ erro: 'chave e acao obrigatórios' })
   }
   
-  if (!['bloquear', 'desbloquear', 'renovar'].includes(acao)) {
+  if (!ADMIN_ACTIONS.has(acao)) {
     return res.status(400).json({ erro: 'acao inválida' })
   }
+
+  if (!isValidActivationKey(activationKey)) {
+    return res.status(400).json({ erro: 'chave inválida' })
+  }
   
-  const chaveHash = hashKey(chave)
+  const chaveHash = hashKey(activationKey)
   const licenca = db.prepare('SELECT * FROM licencas WHERE chave_hash = ?').get(chaveHash)
   
   if (!licenca) {
@@ -668,7 +712,7 @@ app.post('/api/v2/admin/revisar', adminLimiter, requireAdmin, (req, res) => {
   
   logSecurity(ip, req.get('user-agent'), `admin_${acao}`, { 
     licenca_id: licenca.id,
-    motivo: motivo || 'Sem motivo'
+    motivo: String(motivo || 'Sem motivo').slice(0, 200)
   })
   
   res.json({ ok: true, status: novoStatus })
@@ -681,17 +725,19 @@ app.get('/api/v2/admin/listar', adminLimiter, requireAdmin, (req, res) => {
   const params = []
   
   if (status) {
+    if (!LICENSE_STATUSES.has(status)) return res.status(400).json({ erro: 'status inválido' })
     query += ' AND status = ?'
     params.push(status)
   }
   
   if (tipo) {
+    if (!LICENSE_TYPES.has(tipo)) return res.status(400).json({ erro: 'tipo inválido' })
     query += ' AND tipo = ?'
     params.push(tipo)
   }
   
   query += ' ORDER BY criado_em DESC LIMIT ? OFFSET ?'
-  params.push(parseInt(limit), parseInt(offset))
+  params.push(boundedInt(limit, 100, 1, 500), boundedInt(offset, 0, 0, 100000))
   
   const licencas = db.prepare(query).all(...params)
   const total = db.prepare('SELECT COUNT(*) as count FROM licencas').get().count
@@ -706,12 +752,13 @@ app.get('/api/v2/admin/audit-log', adminLimiter, requireAdmin, (req, res) => {
   const params = []
   
   if (acao) {
+    if (!/^[a-z_]{1,64}$/.test(acao)) return res.status(400).json({ erro: 'acao inválida' })
     query += ' AND acao = ?'
     params.push(acao)
   }
   
   query += ' ORDER BY criado_em DESC LIMIT ?'
-  params.push(parseInt(limit))
+  params.push(boundedInt(limit, 100, 1, 500))
   
   const logs = db.prepare(query).all(...params)
   res.json(logs)

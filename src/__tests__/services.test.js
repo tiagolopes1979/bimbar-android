@@ -189,7 +189,8 @@ describe('CaixaService', () => {
 
   test('excluir caixa', async () => {
     await caixaService.abrirCaixa({ data: '2025-06-01' })
-    await caixaService.excluirCaixa('2025-06-01')
+    const caixa = await caixaService.getCaixa('2025-06-01')
+    await caixaService.excluirCaixa(caixa.id)
     expect(await caixaService.getCaixa('2025-06-01')).toBeNull()
   })
 })

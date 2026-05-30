@@ -10,7 +10,9 @@
     "build:android": "npm run build && npx cap build android",
     "open:android": "npx cap open android",
     "copy": "npm run build && npx cap copy",
-    "test": "NODE_ENV=test node --experimental-vm-modules node_modules/.bin/jest --forceExit"
+    "test": "npm run test:syntax && NODE_ENV=test node --experimental-vm-modules node_modules/.bin/jest --forceExit",
+    "test:syntax": "node --check tests/validation.test.js && node --check server/index.js",
+    "security": "node check-security.js"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.0",

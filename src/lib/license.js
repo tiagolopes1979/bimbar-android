@@ -8,13 +8,35 @@ export async function getServerUrl() {
   return rows.length > 0 ? rows[0].valor : DEFAULT_SERVER_URL
 }
 
-export async function setServerUrl(url) {
+export function normalizeServerUrl(url) {
   const val = url.trim()
-  // Validar HTTPS obrigatório
-  const isLocalDev = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/i.test(val)
-  if (val && !/^https:\/\/.+/i.test(val) && !isLocalDev) {
+  if (!val) return DEFAULT_SERVER_URL
+
+  let parsed
+  try {
+    parsed = new URL(val)
+  } catch {
+    throw new Error('URL do servidor inválida')
+  }
+
+  const isLocalDev = parsed.protocol === 'http:' &&
+    ['localhost', '127.0.0.1'].includes(parsed.hostname)
+
+  if (parsed.protocol !== 'https:' && !isLocalDev) {
     throw new Error('URL deve usar HTTPS para segurança')
   }
+
+  if (parsed.username || parsed.password) {
+    throw new Error('URL do servidor não deve conter usuário ou senha')
+  }
+
+  parsed.hash = ''
+  parsed.search = ''
+  return parsed.href.replace(/\/$/, '')
+}
+
+export async function setServerUrl(url) {
+  const val = normalizeServerUrl(url)
   await run('INSERT OR REPLACE INTO config (chave, valor) VALUES (?, ?)', ['server_url', val || DEFAULT_SERVER_URL])
 }
 
