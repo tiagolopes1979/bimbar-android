@@ -236,12 +236,43 @@ export async function verifyAppIntegrity() {
 
   try {
     const result = await window.Capacitor?.Plugins?.AppIntegrity?.verify?.()
+    if (result?.play_integrity_available) {
+      const tokenResult = await window.Capacitor?.Plugins?.AppIntegrity?.getPlayIntegrityToken?.()
+      return {
+        valid: result?.valid || false,
+        signature: result?.apk_signature_digest,
+        isReleaseBuild: result?.device_integrity?.is_release_build || false,
+        playIntegrityToken: tokenResult?.token || '',
+        playIntegrityAvailable: true,
+        timestamp: new Date().toISOString()
+      }
+    }
     return {
       valid: result?.valid || false,
-      signature: result?.signature,
+      signature: result?.apk_signature_digest || result?.signature,
+      isReleaseBuild: result?.device_integrity?.is_release_build || false,
+      playIntegrityToken: '',
+      playIntegrityAvailable: false,
       timestamp: new Date().toISOString()
     }
   } catch (e) {
     return { valid: true, error: e.message }
+  }
+}
+
+export async function getPlayIntegrityToken() {
+  if (Capacitor.getPlatform() !== 'android') {
+    return { token: null, available: false }
+  }
+
+  try {
+    const result = await window.Capacitor?.Plugins?.AppIntegrity?.getPlayIntegrityToken?.()
+    return {
+      token: result?.token || null,
+      available: result?.available || false,
+      apkDigest: result?.apk_digest
+    }
+  } catch (e) {
+    return { token: null, available: false, error: e.message }
   }
 }

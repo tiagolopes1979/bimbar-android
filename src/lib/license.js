@@ -1,4 +1,5 @@
 import { query, run } from './database.js'
+import { getPlayIntegrityToken } from './security.js'
 
 // Configuração do servidor
 const DEFAULT_SERVER_URL = '' // Configurar no app em Configurações > Servidor de Ativação
@@ -76,7 +77,7 @@ export async function validarChave(chave) {
         chave: normalizedKey,
         device_uuid: await getDeviceUuid(),
         device_fingerprint: deviceFingerprint,
-        play_integrity_token: null // Implementar Play Integrity quando disponível
+        play_integrity_token: await getPlayIntegrityToken().then(r => r.token).catch(() => null)
       }),
       signal: AbortSignal.timeout(10000)
     })

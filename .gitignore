@@ -8,9 +8,9 @@ www/app.bundle.js
 
 # Server secrets
 server/.env
-server/licencas.db
-server/licencas.db-wal
-server/licencas.db-shm
+*.db
+*.db-wal
+*.db-shm
 deploy/*.db
 
 # Test licenses

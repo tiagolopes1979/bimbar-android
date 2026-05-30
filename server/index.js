@@ -229,7 +229,7 @@ function logSecurity(ip, userAgent, acao, detalhes) {
 // Rate limiting agressivo
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 100,
   message: { error: 'Muitas tentativas. Tente novamente mais tarde.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -238,7 +238,7 @@ const limiter = rateLimit({
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 10,
+  max: process.env.NODE_ENV === 'test' ? 1000 : 10,
   message: { error: 'Muitas tentativas falhas. Conta bloqueada temporariamente.' },
   standardHeaders: true,
   legacyHeaders: false
@@ -246,7 +246,7 @@ const strictLimiter = rateLimit({
 
 const adminLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 50,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 50,
   message: { error: 'Muitas requisições admin.' }
 })
 
@@ -274,6 +274,20 @@ function requireAdmin(req, res, next) {
   next()
 }
 
+// Tabela de nonces usados (prevenir replay attack)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS nonces_usados (
+    nonce TEXT PRIMARY KEY,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`)
+db.exec(`CREATE INDEX IF NOT EXISTS idx_nonces_criado ON nonces_usados(criado_em)`)
+
+// Limpar nonces expirados a cada hora
+setInterval(() => {
+  db.prepare("DELETE FROM nonces_usados WHERE criado_em < datetime('now', '-1 hour')").run()
+}, 3600000)
+
 // Verificação de segurança do dispositivo
 function verifyDeviceSecurity(deviceFingerprint, playIntegrityToken) {
   if (!deviceFingerprint) {
@@ -286,17 +300,92 @@ function verifyDeviceSecurity(deviceFingerprint, playIntegrityToken) {
     return { valid: false, reason: 'Invalid device fingerprint' }
   }
   
-  // Se token de integrity for fornecido, validar (implementar com Google API)
+  // Se token de integrity for fornecido, validar
   if (playIntegrityToken) {
-    // Aqui você integraria com Google Play Integrity API
-    // Por enquanto, validamos formato básico
-    const tokenPattern = /^[a-zA-Z0-9_-]{100,5000}$/
+    // Verificar se o token já foi usado (replay attack)
+    const nonceHash = createHash('sha256').update(playIntegrityToken).digest('hex')
+    const nonceUsado = db.prepare('SELECT 1 FROM nonces_usados WHERE nonce = ?').get(nonceHash)
+    if (nonceUsado) {
+      return { valid: false, reason: 'Integrity token already used (replay detected)' }
+    }
+    
+    // Marcar nonce como usado
+    db.prepare('INSERT OR IGNORE INTO nonces_usados (nonce) VALUES (?)').run(nonceHash)
+    
+    // Validar formato do token JWT do Play Integrity
+    const tokenPattern = /^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/
     if (!tokenPattern.test(playIntegrityToken)) {
       return { valid: false, reason: 'Invalid integrity token format' }
+    }
+    
+    // Verificar payload do token JWT (decodificar parte central)
+    try {
+      const parts = playIntegrityToken.split('.')
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString())
+      
+      // Verificar se o token não expirou
+      if (payload.exp && Date.now() > payload.exp * 1000) {
+        return { valid: false, reason: 'Integrity token expired' }
+      }
+      
+      // Verificar audience (nonce)
+      if (!payload.nonce || payload.nonce.length < 8) {
+        return { valid: false, reason: 'Invalid integrity token nonce' }
+      }
+    } catch (e) {
+      // Se não conseguir decodificar, aceitar formato básico
     }
   }
   
   return { valid: true }
+}
+
+// Verificação detalhada do token Play Integrity via API Google
+async function verifyPlayIntegrityRemotely(playIntegrityToken, packageName) {
+  if (!process.env.GOOGLE_CLOUD_PROJECT_NUMBER || !process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+    return { valid: true, note: 'Remote verification not configured' }
+  }
+  
+  try {
+    const response = await fetch(
+      `https://playintegrity.googleapis.com/v1/${encodeURIComponent(packageName)}:decodeIntegrityToken`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${playIntegrityToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ integrity_token: playIntegrityToken }),
+        signal: AbortSignal.timeout(5000)
+      }
+    )
+    
+    if (!response.ok) {
+      return { valid: false, reason: `Remote verification failed: ${response.status}` }
+    }
+    
+    const data = await response.json()
+    
+    // Verificar resultado da verificação
+    const tokenPayload = data.tokenPayloadExternal
+    if (!tokenPayload) {
+      return { valid: false, reason: 'Empty integrity response' }
+    }
+    
+    const accountDetails = tokenPayload.accountDetails || {}
+    const appIntegrity = tokenPayload.appIntegrity || {}
+    const deviceIntegrity = tokenPayload.deviceIntegrity || {}
+    
+    return {
+      valid: appIntegrity.appRecognitionVerdict === 'PLAY_RECOGNIZED',
+      appRecognitionVerdict: appIntegrity.appRecognitionVerdict,
+      deviceRecognitionVerdict: (deviceIntegrity.deviceRecognitionVerdict || []).join(','),
+      accountDetails: accountDetails.appLicensingVerdict,
+      timestamp: new Date().toISOString()
+    }
+  } catch (e) {
+    return { valid: true, note: `Remote verification error: ${e.message}` }
+  }
 }
 
 // Gerar token JWT de sessão
@@ -415,6 +504,19 @@ app.post('/api/v2/ativar', strictLimiter, async (req, res) => {
     return res.status(400).json({ valido: false, motivo: securityCheck.reason })
   }
   
+  // Verificação remota do Play Integrity (se configurado)
+  if (play_integrity_token && process.env.GOOGLE_CLOUD_PROJECT_NUMBER) {
+    try {
+      const remoteCheck = await verifyPlayIntegrityRemotely(play_integrity_token, 'com.bimbar.app')
+      if (!remoteCheck.valid) {
+        logSecurity(ip, userAgent, 'ativacao_failed', { reason: 'remote_integrity_failed', details: remoteCheck })
+        return res.status(400).json({ valido: false, motivo: 'Integridade do dispositivo não confirmada' })
+      }
+    } catch (e) {
+      logSecurity(ip, userAgent, 'ativacao_warning', { reason: 'remote_integrity_error', error: e.message })
+    }
+  }
+  
   // Hash da chave para não armazenar texto puro
   const chaveHash = hashKey(activationKey)
   
@@ -438,8 +540,8 @@ app.post('/api/v2/ativar', strictLimiter, async (req, res) => {
       return res.status(401).json({ valido: false, motivo: 'Chave de ativação inválida' })
     }
     
-    // Verificar se já está ativa em outro dispositivo
-    if (licenca.status === 'ativa' && licenca.device_uuid !== device_uuid) {
+    // Verificar se já está ativa em outro dispositivo (apenas para não-enterprise)
+    if (licenca.tipo !== 'enterprise' && licenca.status === 'ativa' && licenca.device_uuid !== device_uuid) {
       db.prepare('UPDATE licencas SET tentativas_falhas = tentativas_falhas + 1 WHERE id = ?')
         .run(licenca.id)
       

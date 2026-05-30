@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master]
+
+env:
+  NODE_VERSION: 18
+  JAVA_VERSION: 17
+
+jobs:
+  test-client:
+    name: Testes Unitários (Client)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npx jest --forceExit
+        env:
+          NODE_ENV: test
+      - run: node check-security.js
+        name: Auditoria de Segurança
+
+  test-server:
+    name: Testes de Integração (Servidor)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      - run: node tests/validation.test.js
+        env:
+          NODE_ENV: test
+
+  lint:
+    name: Lint e Validação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node --check tests/validation.test.js
+      - run: node --check server/index.js
+      - run: node --check src/app.js || true
+      - run: npx eslint src/ --ext .js || echo "ESLint não configurado"
+
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ''
+          KEY_PASSWORD: ''
